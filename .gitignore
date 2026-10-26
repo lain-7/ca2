@@ -1,0 +1,53 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+
+# ---------- 虚拟环境 ----------
+.venv/
+venv/
+cowrie-env/
+
+# ---------- 虚拟机镜像（体积过大，不入库）----------
+*.ova
+*.ovf
+*.vmdk
+*.qcow2
+*.raw
+*.img
+*.iso
+UbuntuVM.zip
+*.zip
+
+# ---------- 实验中间产物 ----------
+inspect_cowrie/
+kvmstage/
+vm/
+
+# ---------- 文件备份 ----------
+*.bak
+*.bak-*
+*.orig-backup
+*.py.bak-*
+
+# ---------- 日志与临时文件 ----------
+*.log
+*.pid
+tmp/
+temp/
+*.tmp
+
+# ---------- 编辑器 / 系统 ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---------- 本地配置（含 IP、凭据，不公开）----------
+.claude/
+.env
+*.local

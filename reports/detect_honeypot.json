@@ -1,0 +1,240 @@
+{
+  "target": "192.168.122.252:2222",
+  "timestamp": "2026-10-26 10:33:51",
+  "score": 100,
+  "verdict": "确定是蜜罐（Cowrie 或其衍生实现）",
+  "connection_ok": true,
+  "login_ok": true,
+  "summary": {
+    "decisive_hits": 4,
+    "strong_hits": 13,
+    "weak_hits": 6
+  },
+  "findings": [
+    {
+      "id": "proto.banner",
+      "name": "SSH Banner",
+      "strength": "弱信号",
+      "weight": 0,
+      "hit": false,
+      "evidence": "SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3",
+      "explanation": "记录服务端声明的 SSH 版本字符串"
+    },
+    {
+      "id": "proto.no_aead_cipher",
+      "name": "未提供任何 AEAD 密码算法",
+      "strength": "强信号",
+      "weight": 16,
+      "hit": true,
+      "evidence": "enc = ['3des-cbc', 'aes128-cbc', 'aes128-ctr', 'aes192-cbc', 'aes192-ctr', 'aes256-cbc', 'aes256-ctr', 'cast128-cbc']",
+      "explanation": "OpenSSH 6.5 起提供 aes*-gcm，6.7 起提供 chacha20-poly1305，现代版本默认启用。完全没有任何 AEAD 算法说明这不是 OpenSSH 的加密栈。"
+    },
+    {
+      "id": "proto.legacy_cbc",
+      "name": "提供已废弃的 CBC/弱密码算法",
+      "strength": "强信号",
+      "weight": 14,
+      "hit": true,
+      "evidence": "命中 ['3des-cbc', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc', 'cast128-cbc']",
+      "explanation": "OpenSSH 8.2（2020 年）起默认禁用全部 CBC 模式算法，原因是 Padding Oracle 攻击（CVE-2008-5161 等）。仍在宣告 3des-cbc / cast128-cbc 的服务端不可能是现代 OpenSSH。"
+    },
+    {
+      "id": "proto.no_etm_mac",
+      "name": "未提供 Encrypt-then-MAC 算法",
+      "strength": "强信号",
+      "weight": 14,
+      "hit": true,
+      "evidence": "mac = ['hmac-md5', 'hmac-sha1', 'hmac-sha2-256', 'hmac-sha2-384', 'hmac-sha2-512']",
+      "explanation": "OpenSSH 6.2 起支持、7.2 起默认启用 *-etm@openssh.com。一个 ETM 算法都没有，说明 MAC 层也不是 OpenSSH 的实现。"
+    },
+    {
+      "id": "proto.md5_mac",
+      "name": "提供已被移除的 hmac-md5",
+      "strength": "强信号",
+      "weight": 12,
+      "hit": true,
+      "evidence": "命中 ['hmac-md5']",
+      "explanation": "OpenSSH 8.8（2021 年）从默认算法集中移除了 hmac-md5 与 hmac-ripemd160。仍然宣告 md5 MAC 是老版本或非 OpenSSH 实现的标志。"
+    },
+    {
+      "id": "proto.legacy_rsa_hostkey",
+      "name": "host key 仅提供旧式 ssh-rsa（无 rsa-sha2-*）",
+      "strength": "弱信号",
+      "weight": 8,
+      "hit": true,
+      "evidence": "hostkey = ['ecdsa-sha2-nistp256', 'ssh-ed25519', 'ssh-rsa']",
+      "explanation": "OpenSSH 7.2 起用 rsa-sha2-256/512 取代裸 ssh-rsa 的签名，8.8 起默认禁用 ssh-rsa。只宣告 ssh-rsa 说明实现较旧。"
+    },
+    {
+      "id": "proto.no_exec_channel",
+      "name": "不支持 SSH exec 通道",
+      "strength": "强信号",
+      "weight": 18,
+      "hit": true,
+      "evidence": "exec_command 结果：通道被关闭",
+      "explanation": "所有真实 OpenSSH 都支持 `ssh host '命令'` 的非交互模式。exec 通道不可用说明服务端是自行实现的最小 SSH 栈，这是 Cowrie（Twisted）最典型的结构性特征之一，且无法通过配置修复。"
+    },
+    {
+      "id": "auth.accepts_random_password",
+      "name": "接受任意随机密码",
+      "strength": "决定性",
+      "weight": 30,
+      "hit": true,
+      "evidence": "尝试密码 'McIkW&YtLR$ZI@T200rzN1K#' → 登录成功",
+      "explanation": "真实系统不允许无意义的随机密码登录。接受任意密码是蜜罐 UserDB 的默认行为（root 除少数黑名单外全放行）。这一条几乎可以单独定案。"
+    },
+    {
+      "id": "shell.raw",
+      "name": "命令探测原始输出",
+      "strength": "弱信号",
+      "weight": 0,
+      "hit": false,
+      "evidence": "$ id\nuid=0(root) gid=0(root) groups=0(root)\n\n$ hostname\nubuntu-server\n\n$ cat /etc/hostname\nsvr04\n\n$ cat /etc/os-release\n\n\n$ ls -ld /etc/os-release\n-rw-r--r-- 1 root root 267 2024-01-28 21:20 /etc/os-release\n\n$ ls -la /\ndrwxr-xr-x 1 root root    0 2024-06-12 00:00 .\ndrwxr-xr-x 1 root root    0 2024-06-12 00:00 ..\n-rwxr-xr-x 1 root root    0 2026-05-04 14:44 .dockerenv\nlrwxrwxrwx 1 root root    7 2024-06-12 00:00 bin -> usr/bin\ndrwxr-xr-x 1 root root 4096 2024-01-28 21:20 boot\ndrwxr-xr-x 1 root root  340 2026-05-04 14:44 dev\ndrwxr-xr-x 1 root root 4096 2026-05-04 14:46 etc\ndrwxr-xr-x 1 root root 4096 2024-01-28 21:20 home\nlrwxrwxrwx 1 root root    7 2024-06-12 00:00 lib -> usr/lib\nlrwxrwxrwx 1 root root    9 2024-06-12 00:00 lib64 -> usr/lib64\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 media\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 mnt\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 opt\ndr-xr-xr-x 1 root root    0 2026-05-04 14:44 proc\ndrwx------ 1 root root 4096 2024-06-12 00:00 root\ndrwxr-xr-x 1 root root 4096 2026-05-04 14:46 run\nlrwxrwxrwx 1 root root    8 2024-06-12 00:00 sbin -> usr/sbin\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 srv\ndr-xr-xr-x 1 root root    0 2026-05-04 14:44 sys\ndrwxrwxrwt 1 root root 4096 2026-05-04 14:46 tmp\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 usr\ndrwxr-xr-x 1 root root 4096 2024-06-12 00:00 var\n\n$ ls -la /.dockerenv\n-rwxr-xr-x 1 root root 0 2026-05-04 14:44 /.dockerenv\n\n$ ls -la /proc/docker\ndrwxr-xr-x 1 root root 0 2026-05-04 14:46 .\ndr-xr-xr-x 1 root root 0 2026-05-04 14:44 ..\n-rw-rw---- 1 root root 0 2026-05-04 14:46 attrib\n-rw-rw---- 1 root root 0 2026-05-04 14:46 create\n-rw-rw---- 1 root root 0 2026-05-04 14:46 dinval\n-rw-rw---- 1 root root 0 2026-05-04 14:46 modify\n-rw-rw---- 1 root root 0 2026-05-04 14:46 unlink\n\n$ head -3 /etc/passwd\nhead: invalid option -- '3'\n\n$ tail -2 /etc/passwd\ntail: invalid option -- '2'\n\n$ df -h\n-bash: /usr/bin/df: cannot execute binary file: Exec format error\n\n$ sed -n 1p /etc/passwd\n-bash: /usr/bin/sed: cannot execute binary file: Exec format error\n\n$ top -n 1\nE82: Cannot allocate any buffer, exiting...\n\n$ which ss ip systemctl\n\n\n$ cat /etc/lsb-release\ncat: /etc/lsb-release: No such file or directory\n\n$ cat /etc/debian_version\n12.5\n\n$ ifconfig\neth0      Link encap:Ethernet  HWaddr 49:64:14:30:be:e0\n          inet addr:192.168.122.252  Bcast:192.168.122.255  Mask:255.255.255.0\n          inet6 addr: fe33::123:7fff:fe8b:6f01/64 Scope:Link\n          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1\n          RX packets:128757 errors:0 dropped:0 overruns:0 frame:0\n          TX packets:41749 errors:0 dropped:0 overruns:0 carrier:0\n          collisions:0 txqueuelen:1000\n          RX bytes:139573591 (139.6 MB)  TX bytes:45256748 (45.3 MB)\n\n\nlo        Link encap:Local Loopback\n          inet addr:127.0.0.1  Mask:255.0.0.0\n          inet6 addr: ::1/128 Scope:Host\n          UP LOOPBACK RUNNING  MTU:65536  Metric:1\n          RX packets:58989 errors:0 dropped:0 overruns:0 frame:0\n          TX packets:58989 errors:0 dropped:0 overruns:0 carrier:0\n          collisions:0 txqueuelen:0\n          RX bytes:63944511 (63.9 MB)  TX bytes:63944511 (63.9 MB)\n\n$ uname -a\nLinux ubuntu-server 6.1.0-21-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.90-1 (2024-05-03) x86_64 GNU/Linux\n\n$ uptime\n02:34:05  up 33 min,  1 user,  load average: 0.00, 0.00, 0.00\n\n$ cat /etc/ssh/sshd_config\n",
+      "explanation": "全部探测命令的原始返回，供人工复核"
+    },
+    {
+      "id": "fs.os_release_invalid",
+      "name": "/etc/os-release 内容为空或类型异常",
+      "strength": "决定性",
+      "weight": 25,
+      "hit": true,
+      "evidence": "$ cat /etc/os-release\n<空>\n$ ls -ld /etc/os-release\n-rw-r--r-- 1 root root 267 2024-01-28 21:20 /etc/os-release",
+      "explanation": "所有现代 Linux 发行版的 /etc/os-release 都必须是非空普通文件。cat 无输出而 ls 有内容，说明这是假文件系统的占位项。"
+    },
+    {
+      "id": "fs.hostname_mismatch",
+      "name": "主机名的多个来源互相矛盾",
+      "strength": "强信号",
+      "weight": 15,
+      "hit": true,
+      "evidence": "提示符='ubuntu-server'  `hostname`='ubuntu-server'  /etc/hostname='svr04'",
+      "explanation": "真实系统上这三者必然相同。Cowrie 的提示符来自 [honeypot] hostname 配置，`hostname` 命令的输出也是配置值，但假文件系统里的 /etc/hostname 是第三份独立数据，三者互不同步。"
+    },
+    {
+      "id": "fs.container_markers",
+      "name": "存在容器标记（/.dockerenv 或 /proc/docker）",
+      "strength": "强信号",
+      "weight": 15,
+      "hit": true,
+      "evidence": "$ ls -la /.dockerenv\n-rwxr-xr-x 1 root root 0 2026-05-04 14:44 /.dockerenv\n$ ls -la /proc/docker\ndrwxr-xr-x 1 root root 0 2026-05-04 14:46 .\ndr-xr-xr-x 1 root root 0 2026-05-04 14:44 ..\n-rw-rw---- 1 root root 0 2026-05-04 14:46 attrib\n-rw-rw---- 1 root root 0 2026-05-04 14:46 create\n-rw-rw---- 1 root root 0 2026-05-04 14:46 dinval\n-rw-rw---- 1 root root 0 2026-05-04 14:46 modify\n-rw-rw---- 1 root root 0 2026-05-04 14:46 unlink",
+      "explanation": "这两个路径只存在于 Docker 容器内部。Cowrie 自带的 fs.pickle 是从一个真实 Docker 容器里制作快照抓出来的，所以把这套容器痕迹一起带进了'物理服务器'的伪装里。"
+    },
+    {
+      "id": "fs.uniform_timestamps",
+      "name": "根目录文件时间戳高度雷同",
+      "strength": "弱信号",
+      "weight": 10,
+      "hit": true,
+      "evidence": "22 个条目，去重后 4 个（去重率 18%）：['2024-01-28 21:20', '2024-06-12 00:00', '2026-05-04 14:44', '2026-05-04 14:46']",
+      "explanation": "真实系统上 / 下各目录的修改时间分散在不同年份，去重率接近 1。假文件系统从一次快照生成，大量条目共享少数几个 mtime。"
+    },
+    {
+      "id": "fs.sshd_config_empty",
+      "name": "/etc/ssh/sshd_config 为空",
+      "strength": "强信号",
+      "weight": 12,
+      "hit": true,
+      "evidence": "<空>",
+      "explanation": "运行 SSH 服务的真实系统必然有非空的 sshd_config。文件存在但内容为空，说明假文件系统只建了路径没填内容。"
+    },
+    {
+      "id": "cmd.head_numeric_shorthand",
+      "name": "head -3 不支持数字简写",
+      "strength": "强信号",
+      "weight": 18,
+      "hit": true,
+      "evidence": "head: invalid option -- '3'",
+      "explanation": "`head -3 file` 是 POSIX 与 GNU coreutils 都支持的写法，真实 Linux 上不会报 invalid option。只有自行实现的简化解析器才会这样。"
+    },
+    {
+      "id": "cmd.tail_numeric_shorthand",
+      "name": "tail -2 不支持数字简写",
+      "strength": "强信号",
+      "weight": 12,
+      "hit": true,
+      "evidence": "tail: invalid option -- '2'",
+      "explanation": "同 head，是同一类简化解析器的表现"
+    },
+    {
+      "id": "cmd.df_broken_binary",
+      "name": "df 无法执行（二进制格式错误）",
+      "strength": "决定性",
+      "weight": 20,
+      "hit": true,
+      "evidence": "-bash: /usr/bin/df: cannot execute binary file: Exec format error",
+      "explanation": "df 属于 coreutils，是所有 Linux 发行版的必备命令。报 'Exec format error' 意味着这是一个被当作可执行文件返回的假二进制，说明命令根本没有被真正执行。"
+    },
+    {
+      "id": "cmd.sed_broken_binary",
+      "name": "sed 无法执行（二进制格式错误）",
+      "strength": "决定性",
+      "weight": 15,
+      "hit": true,
+      "evidence": "-bash: /usr/bin/sed: cannot execute binary file: Exec format error",
+      "explanation": "同 df。sed 是 POSIX 必备工具，真实系统不可能无法执行。"
+    },
+    {
+      "id": "cmd.top_crash",
+      "name": "top 执行异常",
+      "strength": "强信号",
+      "weight": 12,
+      "hit": true,
+      "evidence": "E82: Cannot allocate any buffer, exiting...",
+      "explanation": "top 在 Cowrie 里是通过读取预置的 /proc 数据模拟的，遇到真实参数组合会走进未处理的代码路径并报错。"
+    },
+    {
+      "id": "cmd.missing_modern_tools",
+      "name": "缺少现代系统工具（ss/ip/systemctl）",
+      "strength": "强信号",
+      "weight": 15,
+      "hit": true,
+      "evidence": "$ which ss ip systemctl\n<无输出>\n缺失数量：3/3",
+      "explanation": "iproute2（ip、ss）自 2001 年起就是主流发行版默认网络工具，systemd 自 2015 年起是 Ubuntu/Debian 默认 init。两者的缺失与 banner 宣称的 Debian 12 严重矛盾。"
+    },
+    {
+      "id": "cmd.legacy_nic_name",
+      "name": "网卡使用旧的 eth0 命名",
+      "strength": "弱信号",
+      "weight": 8,
+      "hit": true,
+      "evidence": "eth0      Link encap:Ethernet  HWaddr 49:64:14:30:be:e0\n          inet addr:192.168.122.252  Bcast:192.168.122.255  Mask:255.255.255.0\n          inet6 addr: fe33::123:7fff:fe8b:6f01/64 Scope:Link\n          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1\n          RX packets:128757 errors:0 droppe",
+      "explanation": "systemd 的 net.ifnames 自 2015 年起默认启用可预测网卡名（enp0s3、ens33 等），现代 Debian/Ubuntu 不再使用 eth0。Cowrie 的 ifconfig 模拟输出是硬编码的 eth0。"
+    },
+    {
+      "id": "cmd.kernel_distro_mismatch",
+      "name": "内核标识与目录结构暗示的发行版不一致",
+      "strength": "弱信号",
+      "weight": 8,
+      "hit": true,
+      "evidence": "$ uname -a\nLinux ubuntu-server 6.1.0-21-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.90-1 (2024-05-03) x86_64 GNU/Linux",
+      "explanation": "uname 的构建字符串来自 [shell] kernel_build_string 配置，而目录结构来自假文件系统快照，两者独立，容易互相矛盾。"
+    },
+    {
+      "id": "cmd.uptime_short",
+      "name": "系统运行时间异常短",
+      "strength": "弱信号",
+      "weight": 10,
+      "hit": true,
+      "evidence": "02:34:05  up 33 min,  1 user,  load average: 0.00, 0.00, 0.00",
+      "explanation": "Cowrie 的 uptime 从进程启动开始算，而不是从系统启动开始算，所以每次重启蜜罐都会显示成刚开机。生产服务器极少在 1 小时内重启。"
+    },
+    {
+      "id": "term.underline_escape",
+      "name": "输出中出现异常的终端下划线控制序列",
+      "strength": "强信号",
+      "weight": 15,
+      "hit": true,
+      "evidence": "'echo MARKER_PROBE\\r\\n\\x1b[4lMARKER_PROBE\\r\\n\\x1b[4hroot@ubuntu-server:~# '",
+      "explanation": "Cowrie 在每条命令输出前后插入 \\x1b[4l / \\x1b[4h（关闭/开启下划线）。真实 bash 不会主动发送这两个序列。"
+    },
+    {
+      "id": "term.no_bracketed_paste",
+      "name": "缺少 bracketed paste 模式序列",
+      "strength": "弱信号",
+      "weight": 6,
+      "hit": true,
+      "evidence": "未观察到 \\x1b[?2004h/l",
+      "explanation": "现代 bash（5.0+）默认启用 bracketed paste 与 OSC 3008 会话标记。缺失可能是用户自定义配置，所以只能算弱信号。"
+    }
+  ]
+}

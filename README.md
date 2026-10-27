@@ -32,7 +32,18 @@
 │   ├── 蜜罐改造记录.md              逐步改造过程与分数对照（1.4 万字）
 │   └── 虚拟机环境说明.md            OVA 迁移到 KVM 的全部改动与理由
 │
-├── tools/                         工具与脚本
+├── attack/                        **攻击方工具**
+│   ├── simulate_attack.sh         SSH 暴力破解和侦察命令模拟
+│   ├── payloads/                  攻击载荷（凭据字典）
+│   └── README.md                  攻击工具使用说明
+│
+├── defense/                       **防守方工具**
+│   ├── analyze_logs.sh            Cowrie 日志分析主脚本
+│   ├── ip_tracker.py              IP 地理位置溯源和威胁评估
+│   ├── report_generator.py        生成详细 Markdown 分析报告
+│   └── README.md                  防守工具使用说明
+│
+├── tools/                         **蜜罐改造工具**
 │   ├── honeypot_detect.py         ★ 蜜罐识别器（主体）
 │   ├── measure.sh                 一键测量并记录分数
 │   ├── probe.py                   交互式命令探测（人工检查用）
@@ -58,26 +69,85 @@
 │       ├── trace_modes.py         追踪终端模式调用栈
 │       └── trace_write.py         追踪 SSH 写入路径
 │
-└── reports/                       每次测量的完整 JSON 数据
+└── reports/                       测量数据与分析报告
     ├── detect_honeypot.json       蜜罐（改造后）
     ├── detect_realsshd.json       对照组：真实 OpenSSH
-    └── step01~06_*.json           六步改造的逐步对照
+    ├── step01~06_*.json           六步改造的逐步对照
+    └── analysis_*/                日志分析报告（运行时生成）
 ```
+
+**文档目录** (`docs/`)：
+
+- `蜜罐识别器设计与检测报告.md` - 检测器原理、五层模型、评分机制（2.3 万字）
+- `蜜罐改造记录.md` - 逐步改造过程与分数对照（1.4 万字）
+- `虚拟机环境说明.md` - OVA 迁移到 KVM 的全部改动与理由
+- `攻防演练使用指南.md` - **完整攻防流程**（30 分钟上手）
+
+---
+
+## 🎯 两条使用路径
+
+### 路径 A：蜜罐改造与检测（检测器角度）
+
+**目标**：理解蜜罐的暴露特征，学习加固方法。
+
+```bash
+# 1. 连接到蜜罐，运行检测器
+python3 tools/honeypot_detect.py 192.168.122.123 2222 root admin
+
+# 2. 查看改造文档，理解每一步改动
+cat docs/蜜罐改造记录.md
+
+# 3. 对比改造前后的分数
+jq .score reports/step01_hostname.json  # 改造前
+jq .score reports/detect_honeypot.json  # 改造后
+```
+
+**适合人群**：想深入理解蜜罐技术、SSH 协议、终端仿真的同学。
+
+### 路径 B：攻防演练与日志分析（安全分析角度）
+
+**目标**：模拟真实攻击，分析攻击者行为，生成安全报告。
+
+```bash
+# 1. 模拟攻击
+cd attack/
+./simulate_attack.sh 192.168.122.123 2222
+
+# 2. 分析日志
+cd ../defense/
+./analyze_logs.sh /path/to/cowrie/logs
+
+# 3. 查看报告
+cat reports/analysis_*/summary.txt
+```
+
+**适合人群**：想快速完成 CA2 Task 3-4（Attack Simulation & Log Analysis）的同学。
+
+📖 **详细流程**：见 [`docs/攻防演练使用指南.md`](docs/攻防演练使用指南.md)
 
 ---
 
 ## 快速开始
 
-### 环境要求
+### 路径 A 依赖
 
 ```bash
-Python 3.9+
+# Python 3.9+ 和 paramiko
 pip install paramiko
 ```
 
-其余均为标准库。
+### 路径 B 依赖
 
-### 运行检测器
+```bash
+# Arch Linux
+sudo pacman -S sshpass openssh jq python curl
+
+# Ubuntu/Debian
+sudo apt install sshpass openssh-client jq python3 curl
+```
+
+### 运行检测器（路径 A）
 
 ```bash
 # 完整检测

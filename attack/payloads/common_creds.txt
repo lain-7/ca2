@@ -1,0 +1,20 @@
+# 常见 SSH 爆破用户名:密码组合
+# 格式: username:password
+root:123456
+root:password
+root:admin
+root:root
+admin:admin
+admin:123456
+admin:password
+ubuntu:ubuntu
+test:test
+guest:guest
+user:user
+pi:raspberry
+oracle:oracle
+postgres:postgres
+mysql:mysql
+administrator:administrator
+support:support
+demo:demo

@@ -51,3 +51,7 @@ Thumbs.db
 .claude/
 .env
 *.local
+
+# ---------- Claude 会话日志（含明文 token，严禁入库）----------
+-home-huz-Downloads-gruop-work/
+*.jsonl

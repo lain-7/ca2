@@ -11,16 +11,21 @@
 set -u
 
 # ==================== 配置区 ====================
-COWRIE_LOG_DIR="${1:-/home/cowrie/cowrie/var/log/cowrie}"  # Cowrie 日志目录
+# 第一个参数可以是日志目录，也可以直接是某个 JSON 日志文件；不传则用默认目录。
+COWRIE_LOG_INPUT="${1:-/home/cowrie/cowrie/var/log/cowrie}"
 OUTPUT_DIR="./reports"                                     # 输出目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IP_TRACKER="$SCRIPT_DIR/ip_tracker.py"                     # IP 溯源脚本
 REPORT_GENERATOR="$SCRIPT_DIR/report_generator.py"         # 报告生成器
 VISUALIZER="$SCRIPT_DIR/visualizer.py"                     # 可视化脚本
 
-# 日志文件（默认分析最新的 JSON 日志）
-if [ -d "$COWRIE_LOG_DIR" ]; then
-    COWRIE_JSON_LOG=$(find "$COWRIE_LOG_DIR" -name "cowrie.json*" -type f | sort -r | head -1)
+# 解析日志文件：
+#   - 传入文件 → 直接使用该文件
+#   - 传入目录 → 取其中最新的 cowrie.json* 日志
+if [ -f "$COWRIE_LOG_INPUT" ]; then
+    COWRIE_JSON_LOG="$COWRIE_LOG_INPUT"
+elif [ -d "$COWRIE_LOG_INPUT" ]; then
+    COWRIE_JSON_LOG=$(find "$COWRIE_LOG_INPUT" -name "cowrie.json*" -type f | sort -r | head -1)
 else
     COWRIE_JSON_LOG=""
 fi
@@ -156,9 +161,9 @@ enrich_ips() {
     log_msg "INFO" "开始 IP 溯源分析..."
     log_msg "INFO" "这可能需要几分钟时间..."
 
-    "$IP_TRACKER" --file "$ip_file" --json > "$output_file" 2>&1
-
-    if [ $? -eq 0 ]; then
+    # 注意：仅把 JSON 结果写入文件，进度信息走 stderr 到终端，
+    # 否则进度文本会混进 JSON 导致后续 jq 解析失败。
+    if "$IP_TRACKER" --file "$ip_file" --json > "$output_file"; then
         log_msg "INFO" "IP 溯源完成，结果保存到: $output_file"
     else
         log_msg "ERROR" "IP 溯源失败"

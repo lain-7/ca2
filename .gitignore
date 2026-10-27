@@ -26,6 +26,10 @@ inspect_cowrie/
 kvmstage/
 vm/
 
+# ---------- 防守工具运行时产物 ----------
+defense/reports/
+defense/lib/
+
 # ---------- 文件备份 ----------
 *.bak
 *.bak-*

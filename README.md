@@ -40,11 +40,12 @@
 ├── defense/                       **防守方工具**
 │   ├── analyze_logs.sh            Cowrie 日志分析主脚本
 │   ├── ip_tracker.py              IP 地理位置溯源和威胁评估
+│   ├── visualizer.py              终端 ASCII 图表
 │   ├── report_generator.py        生成详细 Markdown 分析报告
 │   └── README.md                  防守工具使用说明
 │
 ├── tools/                         **蜜罐改造工具**
-│   ├── honeypot_detect.py         ★ 蜜罐识别器（主体）
+│   ├── honeypot_detect.py         蜜罐识别器（核心）
 │   ├── measure.sh                 一键测量并记录分数
 │   ├── probe.py                   交互式命令探测（人工检查用）
 │   │
@@ -85,7 +86,7 @@
 
 ---
 
-## 🎯 两条使用路径
+## 两条使用路径
 
 ### 路径 A：蜜罐改造与检测（检测器角度）
 
@@ -124,7 +125,7 @@ cat reports/analysis_*/summary.txt
 
 **适合人群**：想快速完成 CA2 Task 3-4（Attack Simulation & Log Analysis）的同学。
 
-📖 **详细流程**：见 [`docs/攻防演练使用指南.md`](docs/攻防演练使用指南.md)
+**详细流程**：见 [`docs/攻防演练使用指南.md`](docs/攻防演练使用指南.md)
 
 ---
 

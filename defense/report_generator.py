@@ -362,71 +362,38 @@ class ReportGenerator:
         lines.append("基于本次蜜罐日志分析，我们提出以下安全建议：")
         lines.append("")
 
-        lines.append("1. **强制实施强密码策略** 📋")
+        lines.append("1. **强制实施强密码策略**")
         if password_counts:
             top_passwords = [p for p, _ in password_counts.most_common(5)]
-            lines.append(f"   - **分析发现**: 检测到高频弱密码 {', '.join(f'`{p}`' for p in top_passwords)}")
-        lines.append("   - **建议措施**:")
-        lines.append("     - 最少 12 个字符，包含大小写字母、数字和特殊字符")
-        lines.append("     - 定期强制修改密码（每 90 天）")
-        lines.append("     - 禁止使用常见词汇和用户信息")
-        lines.append("   - **预期效果**: 降低密码破解攻击成功率 95% 以上")
+            lines.append(f"   - 分析发现：高频弱密码 {', '.join(f'`{p}`' for p in top_passwords)}")
+        lines.append("   - 要求最少 12 位，混合大小写字母、数字与特殊字符；定期更换；禁用常见词汇。")
+        lines.append("   - 理由：本次日志中的尝试几乎全部是字典内的弱口令，强密码可直接让这类爆破失效。")
         lines.append("")
 
-        lines.append("2. **加强 SSH 访问控制** 🔐")
-        lines.append("   - **建议措施**:")
-        lines.append("     - 修改 SSH 默认端口（从 22 改为 2222 等非标准端口）")
-        lines.append("     - 禁用密码认证，只允许 SSH 密钥登录")
-        lines.append("     - 配置 `fail2ban` 或 `DenyHosts` 自动封禁暴力破解源")
-        lines.append("       ```")
-        lines.append("       - 登录失败 5 次后临时封禁 1 小时")
-        lines.append("       - 持续高频尝试者永久封禁")
-        lines.append("       ```")
-        lines.append("     - 使用 IP 白名单，仅允许受信任的 IP 范围访问")
-        lines.append("   - **预期效果**: 将自动化攻击的成功率降至接近零")
+        lines.append("2. **禁用密码认证，改用 SSH 密钥**")
+        lines.append("   - 在 `sshd_config` 中设置 `PasswordAuthentication no`，仅允许密钥登录。")
+        lines.append("   - 理由：攻击者依赖的是密码猜测，密钥认证使暴力破解无从下手。")
         lines.append("")
 
-        lines.append("3. **启用多因素认证 (MFA)** 🔑")
-        lines.append("   - **建议措施**:")
-        lines.append("     - 使用 Google Authenticator、Authy 等工具实现 TOTP 认证")
-        lines.append("     - 对关键账户（root、admin）强制启用 MFA")
-        lines.append("     - 同时配合密钥认证使用")
-        lines.append("   - **预期效果**: 即使密码被泄露，攻击者也无法登录")
+        lines.append("3. **禁止 root 直接登录**")
+        if username_counts:
+            root_attempts = sum(c for u, c in username_counts.items() if u == 'root')
+            if root_attempts:
+                lines.append(f"   - 分析发现：`root` 被尝试 {root_attempts} 次，是最主要的目标账户之一。")
+        lines.append("   - 设置 `PermitRootLogin no`，改用普通账户登录后再 `sudo` 提权。")
+        lines.append("   - 理由：root 是攻击者的首要目标，禁用后即使凭据泄露也无法直接拿到最高权限。")
         lines.append("")
 
-        lines.append("4. **部署入侵检测与防护** 🛡️")
-        lines.append("   - **短期措施**:")
-        lines.append("     - 启用系统审计日志（auditd），记录所有登录和命令执行")
-        lines.append("     - 配置 rsyslog 将日志发送至中央日志服务器")
-        lines.append("     - 定期审查日志发现异常活动")
-        lines.append("   - **中期措施**:")
-        lines.append("     - 部署开源 IDS/IPS（Suricata、Snort）")
-        lines.append("     - 配置告警规则检测异常登录和命令执行模式")
-        lines.append("   - **预期效果**: 在攻击发生 5 分钟内检测到并告警")
+        lines.append("4. **部署失败登录封禁（fail2ban）**")
+        lines.append("   - 对连续失败的来源 IP 自动临时封禁，并记录到审计日志。")
+        lines.append("   - 理由：日志显示攻击来自固定来源的高频尝试，自动封禁能显著减缓这类扫描。")
         lines.append("")
 
-        lines.append("5. **定期安全加固与更新** 📦")
-        lines.append("   - **建议措施**:")
-        lines.append("     - 启用自动更新（unattended-upgrades）")
-        lines.append("     - 每月运行安全扫描器（Lynis、OpenVAS）")
-        lines.append("     - 定期审计和禁用不必要的服务与账户")
+        lines.append("5. **启用审计日志与定期更新**")
+        lines.append("   - 开启 `auditd` 记录登录与命令执行，启用系统自动安全更新。")
+        lines.append("   - 理由：及时的日志与补丁能缩短发现入侵的时间，并堵住已知漏洞。")
         if success_count > 0:
-            lines.append(f"     - **紧急**: 已发现 {success_count} 次成功入侵，需要立即进行完整系统审计和密码重置")
-        lines.append("   - **预期效果**: 减少已知 CVE 漏洞被利用的可能性")
-        lines.append("")
-
-        if external_ips and len([ip for ip in external_ips if ip.get('threat_level') in ['high', 'medium']]) > 0:
-            lines.append("6. **网络隔离与地理位置限制** 🌍")
-            lines.append("   - **建议措施**:")
-            high_risk_countries = set(ip['country'] for ip in external_ips
-                                     if ip.get('threat_level') == 'high')
-            if high_risk_countries:
-                lines.append(f"     - 考虑在防火墙配置 GeoIP 限制，封禁高风险地区 ({', '.join(high_risk_countries)})")
-            lines.append("     - 使用 WAF（Web Application Firewall）阻止已知恶意 IP")
-            lines.append("     - 定期更新威胁情报库，自动封禁高危 IP")
-            lines.append("   - **预期效果**: 拦截 80% 的自动化攻击流量")
-            lines.append("")
-
+            lines.append(f"   - 注意：本次已出现 {success_count} 次成功登录，建议立即排查相关会话并重置口令。")
         lines.append("")
 
         # 附录

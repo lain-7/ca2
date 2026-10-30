@@ -1,0 +1,16 @@
+{"timestamp": "2026-10-27T10:00:01.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.login.failed", "username": "root", "password": "password"}
+{"timestamp": "2026-10-27T10:00:05.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.login.failed", "username": "admin", "password": "123456"}
+{"timestamp": "2026-10-27T10:00:10.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.login.success", "username": "root", "password": "password", "session": "session1"}
+{"timestamp": "2026-10-27T10:00:15.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.command.input", "session": "session1", "input": "whoami"}
+{"timestamp": "2026-10-27T10:00:16.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.command.input", "session": "session1", "input": "pwd"}
+{"timestamp": "2026-10-27T10:00:17.234567Z", "src_ip": "192.168.1.100", "eventid": "cowrie.command.input", "session": "session1", "input": "ls -la"}
+{"timestamp": "2026-10-27T10:00:20.234567Z", "src_ip": "8.8.8.8", "eventid": "cowrie.login.failed", "username": "root", "password": "admin123"}
+{"timestamp": "2026-10-27T10:00:25.234567Z", "src_ip": "8.8.8.8", "eventid": "cowrie.login.failed", "username": "admin", "password": "password"}
+{"timestamp": "2026-10-27T10:00:30.234567Z", "src_ip": "8.8.8.8", "eventid": "cowrie.login.failed", "username": "ubuntu", "password": "ubuntu"}
+{"timestamp": "2026-10-27T10:00:35.234567Z", "src_ip": "8.8.8.8", "eventid": "cowrie.login.success", "username": "admin", "password": "admin123", "session": "session2"}
+{"timestamp": "2026-10-27T10:00:40.234567Z", "src_ip": "8.8.8.8", "eventid": "cowrie.command.input", "session": "session2", "input": "cat /etc/passwd"}
+{"timestamp": "2026-10-27T10:00:45.234567Z", "src_ip": "172.16.0.50", "eventid": "cowrie.login.failed", "username": "root", "password": "password"}
+{"timestamp": "2026-10-27T10:00:50.234567Z", "src_ip": "172.16.0.50", "eventid": "cowrie.login.failed", "username": "root", "password": "123456"}
+{"timestamp": "2026-10-27T10:00:55.234567Z", "src_ip": "172.16.0.50", "eventid": "cowrie.login.failed", "username": "root", "password": "admin"}
+{"timestamp": "2026-10-27T10:01:00.234567Z", "src_ip": "172.16.0.50", "eventid": "cowrie.login.failed", "username": "admin", "password": "password"}
+{"timestamp": "2026-10-27T10:01:05.234567Z", "src_ip": "172.16.0.50", "eventid": "cowrie.login.failed", "username": "ubuntu", "password": "password"}

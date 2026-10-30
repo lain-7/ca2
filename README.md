@@ -1,5 +1,7 @@
 # CA2 蜜罐项目：Cowrie 部署、识别与加固
 
+> **中文** · [English](en/README.md)
+
 > ITSD010 Computing and Cybersecurity Fundamentals — CA2 小组作业
 > Singapore Institute of Management · Diploma in Information Technology
 > October 2026 Term

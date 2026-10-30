@@ -1,0 +1,240 @@
+{
+  "target": "192.168.122.252:22",
+  "timestamp": "2026-10-26 10:34:08",
+  "score": 10,
+  "verdict": "Anomalies present, manual review recommended",
+  "connection_ok": true,
+  "login_ok": true,
+  "summary": {
+    "decisive_hits": 0,
+    "strong_hits": 0,
+    "weak_hits": 1
+  },
+  "findings": [
+    {
+      "id": "proto.banner",
+      "name": "SSH Banner",
+      "strength": "WEAK",
+      "weight": 0,
+      "hit": false,
+      "evidence": "SSH-2.0-OpenSSH_10.2p1 Ubuntu-2ubuntu3.6",
+      "explanation": "records the SSH version string the server declares"
+    },
+    {
+      "id": "proto.no_aead_cipher",
+      "name": "Offers no AEAD cipher",
+      "strength": "STRONG",
+      "weight": 16,
+      "hit": false,
+      "evidence": "enc = ['aes128-ctr', 'aes128-gcm@openssh.com', 'aes192-ctr', 'aes256-ctr', 'aes256-gcm@openssh.com', 'chacha20-poly1305@openssh.com']",
+      "explanation": "OpenSSH offers aes*-gcm since 6.5 and chacha20-poly1305 since 6.7, enabled by default in modern versions. No AEAD algorithm at all means this is not OpenSSH's crypto stack."
+    },
+    {
+      "id": "proto.legacy_cbc",
+      "name": "Offers deprecated CBC/weak ciphers",
+      "strength": "STRONG",
+      "weight": 14,
+      "hit": false,
+      "evidence": "matched []",
+      "explanation": "OpenSSH 8.2 (2020) disabled all CBC-mode algorithms by default, because of Padding Oracle attacks (CVE-2008-5161 etc.). A server still advertising 3des-cbc / cast128-cbc cannot be modern OpenSSH."
+    },
+    {
+      "id": "proto.no_etm_mac",
+      "name": "Offers no Encrypt-then-MAC algorithm",
+      "strength": "STRONG",
+      "weight": 14,
+      "hit": false,
+      "evidence": "mac = ['hmac-sha1', 'hmac-sha1-etm@openssh.com', 'hmac-sha2-256', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512', 'hmac-sha2-512-etm@openssh.com', 'umac-128-etm@openssh.com', 'umac-128@openssh.com', 'umac-64-etm@openssh.com', 'umac-64@openssh.com']",
+      "explanation": "OpenSSH supports *-etm@openssh.com since 6.2 and enables it by default since 7.2. Not a single ETM algorithm means the MAC layer is not OpenSSH's implementation either."
+    },
+    {
+      "id": "proto.md5_mac",
+      "name": "Offers the removed hmac-md5",
+      "strength": "STRONG",
+      "weight": 12,
+      "hit": false,
+      "evidence": "matched []",
+      "explanation": "OpenSSH 8.8 (2021) removed hmac-md5 and hmac-ripemd160 from the default set. Still advertising an md5 MAC marks an old version or a non-OpenSSH implementation."
+    },
+    {
+      "id": "proto.legacy_rsa_hostkey",
+      "name": "host key offers only legacy ssh-rsa (no rsa-sha2-*)",
+      "strength": "WEAK",
+      "weight": 8,
+      "hit": false,
+      "evidence": "hostkey = ['ecdsa-sha2-nistp256', 'rsa-sha2-256', 'rsa-sha2-512', 'ssh-ed25519']",
+      "explanation": "OpenSSH replaced bare ssh-rsa signatures with rsa-sha2-256/512 since 7.2, and disabled ssh-rsa by default since 8.8. Advertising only ssh-rsa indicates an older implementation."
+    },
+    {
+      "id": "proto.no_exec_channel",
+      "name": "SSH exec channel not supported",
+      "strength": "STRONG",
+      "weight": 18,
+      "hit": false,
+      "evidence": "exec_command result: success",
+      "explanation": "Every real OpenSSH supports the non-interactive `ssh host 'command'` mode. An unavailable exec channel means the server is a self-implemented minimal SSH stack, one of Cowrie's (Twisted) most typical structural features, and not fixable by configuration."
+    },
+    {
+      "id": "auth.accepts_random_password",
+      "name": "Accepts any random password",
+      "strength": "DECISIVE",
+      "weight": 30,
+      "hit": false,
+      "evidence": "tried password '7R99SwFNTNDk8BP$qTm1!!oX' -> rejected",
+      "explanation": "A real system does not allow login with a meaningless random password. Accepting any password is the default behaviour of the honeypot UserDB (root is allowed except for a small blacklist). This item alone is almost conclusive."
+    },
+    {
+      "id": "shell.raw",
+      "name": "raw output of probe commands",
+      "strength": "WEAK",
+      "weight": 0,
+      "hit": false,
+      "evidence": "$ id\nuid=1000(ubuntucowrie) gid=1000(ubuntucowrie) groups=1000(ubuntucowrie),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users),101(lxd)\n\n$ hostname\nubuntucowrie\n\n$ cat /etc/hostname\nubuntucowrie\n\n$ cat /etc/os-release\nPRETTY_NAME=\"Ubuntu 26.04.1 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\nVERSION=\"26.04.1 LTS (Resolute Raccoon)\"\nVERSION_CODENAME=resolute\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=resolute\nLOGO=ubuntu-logo\n\n$ ls -ld /etc/os-release\nlrwxrwxrwx 1 root root 21 Aug 24 10:33 /etc/os-release -> ../usr/lib/os-release\n\n$ ls -la /\ntotal 1891404\ndrwxr-xr-x  20 root root       4096 Oct 25 12:53 .\ndrwxr-xr-x  20 root root       4096 Oct 25 12:53 ..\nlrwxrwxrwx   1 root root          7 Apr 20  2026 bin -> usr/bin\ndrwxr-xr-x   4 root root       4096 Sep  7 02:23 boot\ndr-xr-xr-x   2 root root       4096 Apr 20  2026 cdrom\ndrwxr-xr-x  19 root root       3980 Oct 26 01:59 dev\ndrwxr-xr-x 110 root root       4096 Sep  7 02:23 etc\ndrwxr-xr-x   4 root root       4096 Sep  5 07:01 home\nlrwxrwxrwx   1 root root          7 Apr 20  2026 lib -> usr/lib\nlrwxrwxrwx   1 root root          9 Apr 20  2026 lib64 -> usr/lib64\ndrwx------   2 root root      16384 Aug 19 05:08 lost+found\ndrwxr-xr-x   2 root root       4096 Apr 20  2026 media\ndrwxr-xr-x   2 root root       4096 Apr 20  2026 mnt\ndrwxr-xr-x   2 root root       4096 Apr 20  2026 opt\ndr-xr-xr-x 195 root root          0 Oct 26 01:59 proc\ndrwx------   4 root root       4096 Sep  5 07:36 root\ndrwxr-xr-x  32 root root        900 Oct 26 02:34 run\nlrwxrwxrwx   1 root root          8 Apr 20  2026 sbin -> usr/sbin\ndrwxr-xr-x   2 root root       4096 Aug 19 05:11 snap\ndrwxr-xr-x   2 root root       4096 Apr 20  2026 srv\n-rw-------   1 root root 1936719872 Aug 19 05:09 swap.img\ndr-xr-xr-x  13 root root          0 Oct 26 02:31 sys\ndrwxrwxrwt  11 root root        220 Oct 26 01:59 tmp\ndrwxr-xr-x  12 root root       4096 Apr 20  2026 usr\ndrwxr-xr-x  13 root root       4096 Aug 19 05:11 var\n\n$ ls -la /.dockerenv\nls: cannot access '/.dockerenv': No such file or directory\n\n$ ls -la /proc/docker\nls: cannot access '/proc/docker': No such file or directory\n\n$ head -3 /etc/passwd\nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\n\n$ tail -2 /etc/passwd\nsshd:x:983:65534:sshd user:/run/sshd:/usr/sbin/nologin\ncowrie:x:1001:1001:,,,:/home/cowrie:/bin/bash\n\n$ df -h\nFilesystem                         Size  Used Avail Use% Mounted on\ntmpfs                              393M 1012K  392M   1% /run\n/dev/mapper/ubuntu--vg-ubuntu--lv  9.8G  5.7G  3.6G  62% /\ntmpfs                              982M     0  982M   0% /dev/shm\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-journald.service\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-resolved.service\ntmpfs                              982M     0  982M   0% /tmp\n/dev/vda2                          1.8G  183M  1.5G  12% /boot\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-networkd.service\nnone                               1.0M     0  1.0M   0% /run/credentials/serial-getty@ttyS0.service\nnone                               1.0M     0  1.0M   0% /run/credentials/getty@tty1.service\ntmpfs                              197M  8.0K  197M   1% /run/user/1000\n\n$ sed -n 1p /etc/passwd\nroot:x:0:0:root:/root:/bin/bash\n\n$ top -n 1\n\u001b=\u001b(Btop - 02:34:21 up 35 min,  2 users,  load average: 0.00, 0.00, 0.00\u001b(B\u001b(B\nTasks:\u001b(B 133 \u001b(Btotal,\u001b(B   1 \u001b(Brunning,\u001b(B 132 \u001b(Bsleeping,\u001b(B   0 \u001b(Bstopped,\u001b(B   0 \u001b(Bzombie\u001b(B\u001b(B\n%Cpu(s):\u001b(B  4.5 \u001b(Bus,\u001b(B  0.0 \u001b(Bsy,\u001b(B  0.0 \u001b(Bni,\u001b(B 95.5 \u001b(Bid,\u001b(B  0.0 \u001b(Bwa,\u001b(B  0.0 \u001b(Bhi,\u001b(B  0.0 \u001b(Bsi,\u001b(B  0.0 \u001b(Bst\u001b(B\u001b(B \u001b(B\u001b(B\nMiB Mem :\u001b(B   1962.5 \u001b(Btotal,\u001b(B   1256.0 \u001b(Bfree,\u001b(B    401.6 \u001b(Bused,\u001b(B    452.0 \u001b(Bbuff/cache\u001b(B\u001b(B \u001b(B\u001b(B    \u001b(B\u001b(B\nMiB Swap:\u001b(B   1847.0 \u001b(Btotal,\u001b(B   1847.0 \u001b(Bfree,\u001b(B      0.0 \u001b(Bused.\u001b(B   1560.9 \u001b(Bavail Mem \u001b(B\u001b(B\n\n    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                                                                          \u001b(B\n\u001b(B   2988 ubuntuc+  20   0   10832   5908   3752 R   9.1   0.3   0:00.01 top                                                                                                                              \u001b(B\n\u001b(B      1 root      20   0   24892  16124  11680 S   0.0   0.8   0:04.24 systemd                                                                                                                          \u001b(B\n\u001b(B      2 root      20   0       0      0      0 S   0.0   0.0   0:00.01 kthreadd                                                                                                                         \u001b(B\n\u001b(B      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_workqueue_release                                                                                                           \u001b(B\n\u001b(B      4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-rcu_gp                                                                                                                 \u001b(B\n\u001b(B      5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-sync_wq                                                                                                                \u001b(B\n\u001b(B      6 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kvfree_rcu_reclaim                                                                                                     \u001b(B\n\u001b(B      7 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-slub_flushwq                                                                                                           \u001b(B\n\u001b(B      8 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-netns                                                                                                                  \u001b(B\n\u001b(B      9 root      20   0       0      0      0 I   0.0   0.0   0:00.10 kworker/0:0-events                                                                                                               \u001b(B\n\u001b(B     10 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/0:0H-kblockd                                                                                                             \u001b(B\n\u001b(B     12 root      20   0       0      0      0 I   0.0   0.0   0:00.00 kworker/u8:0-ipv6_addrconf                                                                                                       \u001b(B\n\u001b(B     13 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-mm_percpu_wq                                                                                                           \u001b(B\n\u001b(B     14 root      20   0       0      0      0 S   0.0   0.0   0:00.00 ksoftirqd/0                                                                                                                      \u001b(B\n\u001b(B     15 root       0 -20       0      0      0 S   0.0   0.0   0:01.07 pr/ttyS0                                                                                                                         \u001b(B\n\u001b(B     16 root      20   0       0      0      0 I   0.0   0.0   0:00.17 rcu_preempt                                                                                                                      \u001b(B\n\u001b(B     17 root      20   0       0      0      0 S   0.0   0.0   0:00.00 rcu_exp_par_gp_kthread_worker/0                                                                                                  \u001b(B\n\u001b(B     18 root      20   0       0      0      0 S   0.0   0.0   0:00.00 rcu_exp_gp_kthread_worker                                                                                                        \u001b(B\n\u001b(B     19 root      rt   0       0      0      0 S   0.0   0.0   0:00.02 migration/0                                                                                                                      \u001b(B\n\u001b(B     20 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kprobe-optimizer                                                                                                                 \u001b(B\n\u001b(B     21 root     -51   0       0      0      0 S   0.0   0.0   0:00.00 idle_inject/0                                                                                                                    \u001b(B\n\u001b(B     22 root      20   0       0      0      0 S   0.0   0.0   0:00.00 cpuhp/0                                                                                                                          \u001b(B\n\u001b(B     23 root      20   0       0      0      0 S   0.0   0.0   0:00.00 cpuhp/1                                                                                                                          \u001b(B\n\u001b(B     24 root     -51   0       0      0      0 S   0.0   0.0   0:00.00 idle_inject/1                                                                                                                    \u001b(B\n\u001b(B     25 root      rt   0       0      0      0 S   0.0   0.0   0:00.02 migration/1                                                                                                                      \u001b(B\n\u001b(B     26 root      20   0       0      0      0 S   0.0   0.0   0:00.00 ksoftirqd/1                                                                                                                      \u001b(B\n\u001b(B     28 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/1:0H-kblockd                                                                                                             \u001b(B\n\u001b(B     30 root      20   0       0      0      0 I   0.0   0.0   0:00.42 kworker/u10:0-flush-252:0                                                                                                        \u001b(B\n\u001b(B     31 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kdevtmpfs                                                                                                                        \u001b(B\n\u001b(B     32 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-inet_frag_wq                                                                                                           \u001b(B\n\u001b(B     33 root      20   0       0      0      0 I   0.0   0.0   0:00.00 rcu_tasks_kthread                                                                                                                \u001b(B\n\u001b(B     34 root      20   0       0      0      0 I   0.0   0.0   0:00.00 rcu_tasks_rude_kthread                                                                                                           \u001b(B\n\u001b(B     35 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kauditd                                                                                                                          \u001b(B\n\u001b(B     36 root      20   0       0      0      0 S   0.0   0.0   0:00.00 khungtaskd                                                                                                                       \u001b(B\n\u001b(B     37 root      20   0       0      0      0 S   0.0   0.0   0:00.00 oom_reaper                                                                                                                       \u001b(B\n\u001b(B     39 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-writeback                                                                                                              \u001b(B\n\u001b(B     40 root      20   0       0      0      0 I   0.0   0.0   0:00.02 kworker/u10:2-writeback                                                                                                          \u001b(B\n\u001b(B     41 root      20   0       0      0      0 S   0.0   0.0   0:00.14 kcompactd0                                                                                                                       \u001b(B\n\u001b(B     42 root      25   5       0      0      0 S   0.0   0.0   0:00.00 ksmd                                                                                                                             \u001b(B\n\u001b(B     43 root      39  19       0      0      0 S   0.0   0.0   0:00.00 khugepaged                                                                                                                       \u001b(B\n\u001b(B     44 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kblockd                                                                                                                \u001b(B\n\u001b(B     45 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-blkcg_punt_bio                                                                                                         \u001b(B\n\u001b(B     46 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kintegrityd                                                                                                            \u001b(B\u001b>\n\n$ which ss ip systemctl\n/usr/bin/ss\n/usr/sbin/ip\n/usr/bin/systemctl\n\n$ cat /etc/lsb-release\nDISTRIB_ID=Ubuntu\nDISTRIB_RELEASE=26.04\nDISTRIB_CODENAME=resolute\nDISTRIB_DESCRIPTION=\"Ubuntu 26.04.1 LTS\"\n\n$ cat /etc/debian_version\nforky/sid\n\n$ ifconfig\nCommand 'ifconfig' not found, but can be installed with:\nsudo apt install net-tools\n\n$ uname -a\nLinux ubuntucowrie 7.0.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Aug  1 04:26:38 UTC 2026 x86_64 GNU/Linux\n\n$ uptime\n 02:34:25 up 35 min,  2 users,  load average: 0.00, 0.00, 0.00\n\n$ cat /etc/ssh/sshd_config\n# This is the sshd server system-wide configuration file.  See\n# sshd_config(5) for more information.\n\n# This sshd was compiled with PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games\n\n# The strategy used for options in the default sshd_config shipped with\n# OpenSSH is to specify options with their default value where\n# possible, but leave them commented.  Uncommented options override the\n# default value.\n\n# In general, the first uncommented definition of an option takes precedence.\n# For options that accept multiple values, like 'Port', subsequent definitions\n# are appended to the configuration.\n#\n# Note that the above implies that configuration options from snippets in\n# /etc/ssh/sshd_config.d/*.conf take precedence over those defined in this\n# file. In addition, configuration snippet files are processed in lexical\n# order, so options defined in files with names that sort earlier take\n# precedence.\n#\n# Such configuration snippets may be present in default installations of\n# Ubuntu.\nInclude /etc/ssh/sshd_config.d/*.conf\n\n# When systemd socket activation is used (the default), the socket\n# configuration must be re-generated after changing Port, AddressFamily, or\n# ListenAddress.\n#\n# For changes to take effect, run:\n#\n#   systemctl daemon-reload\n#   systemctl restart ssh.socket\n#\n#Port 22\n#AddressFamily any\n#ListenAddress 0.0.0.0\n#ListenAddress ::\n\n#HostKey /etc/ssh/ssh_host_rsa_key\n#HostKey /etc/ssh/ssh_host_ecdsa_key\n#HostKey /etc/ssh/ssh_host_ed25519_key\n\n# Ciphers and keying\n#RekeyLimit default none\n\n# Logging\n#SyslogFacility AUTH\n#LogLevel INFO\n\n# Authentication:\n\n#LoginGraceTime 2m\n#PermitRootLogin prohibit-password\n#StrictModes yes\n#MaxAuthTries 6\n#MaxSessions 10\n\n#PubkeyAuthentication yes\n\n# Expect .ssh/authorized_keys2 to be disregarded by default in future.\n#AuthorizedKeysFile\t.ssh/authorized_keys .ssh/authorized_keys2\n\n#AuthorizedPrincipalsFile none\n\n#AuthorizedKeysCommand none\n#AuthorizedKeysCommandUser nobody\n\n# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts\n#HostbasedAuthentication no\n# Change to yes if you don't trust ~/.ssh/known_hosts for\n# HostbasedAuthentication\n#IgnoreUserKnownHosts no\n# Don't read the user's ~/.rhosts and ~/.shosts files\n#IgnoreRhosts yes\n\n# To disable tunneled clear text passwords, change to \"no\" here!\n#PasswordAuthentication yes\n#PermitEmptyPasswords no\n\n# Change to \"yes\" to enable keyboard-interactive authentication.  Depending on\n# the system's configuration, this may involve passwords, challenge-response,\n# one-time passwords or some combination of these and other methods.\n# Beware issues with some PAM modules and threads.\nKbdInteractiveAuthentication no\n\n# Kerberos options\n#KerberosAuthentication no\n#KerberosOrLocalPasswd yes\n#KerberosTicketCleanup yes\n#KerberosGetAFSToken no\n\n# GSSAPI options\n#GSSAPIAuthentication no\n#GSSAPICleanupCredentials yes\n#GSSAPIStrictAcceptorCheck yes\n#GSSAPIKeyExchange no\n\n# Set this to 'yes' to enable PAM authentication, account processing,\n# and session processing. If this is enabled, PAM authentication will\n# be allowed through the KbdInteractiveAuthentication and\n# PasswordAuthentication.  Depending on your PAM configuration,\n# PAM authentication via KbdInteractiveAuthentication may bypass\n# the setting of \"PermitRootLogin prohibit-password\".\n# If you just want the PAM account and session checks to run without\n# PAM authentication, then enable this but set PasswordAuthentication\n# and KbdInteractiveAuthentication to 'no'.\nUsePAM yes\n\n#AllowAgentForwarding yes\n#AllowTcpForwarding yes\n#GatewayPorts no\nX11Forwarding yes\n#X11DisplayOffset 10\n#X11UseLocalhost yes\n#PermitTTY yes\nPrintMotd no\n#PrintLastLog yes\n#TCPKeepAlive yes\n#PermitUserEnvironment no\n#Compression delayed\n#ClientAliveInterval 0\n#ClientAliveCountMax 3\n#UseDNS no\n#PidFile /run/sshd.pid\n#MaxStartups 10:30:100\n#PermitTunnel no\n#ChrootDirectory none\n#VersionAddendum none\n\n# no default banner path\n#Banner none\n\n# Allow client to pass locale and color environment variables\nAcceptEnv LANG LC_* COLORTERM NO_COLOR\n\n# override default of no subsystems\nSubsystem\tsftp\t/usr/lib/openssh/sftp-server\n\n# Example of overriding settings on a per-user basis\n#Match User anoncvs\n#\tX11Forwarding no\n#\tAllowTcpForwarding no\n#\tPermitTTY no\n#\tForceCommand cvs server",
+      "explanation": "raw responses of all probe commands, for manual review"
+    },
+    {
+      "id": "fs.os_release_invalid",
+      "name": "/etc/os-release is empty or has an abnormal type",
+      "strength": "DECISIVE",
+      "weight": 25,
+      "hit": false,
+      "evidence": "$ cat /etc/os-release\nPRETTY_NAME=\"Ubuntu 26.04.1 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\nVERSION=\"26.04.1 LTS (Resolute Raccoon)\"\nVERSION_CODENAME=resolute\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=resolute\nLOGO=ubuntu-logo\n$ ls -ld /etc/os-release\nlrwxrwxrwx 1 root root 21 Aug 24 10:33 /etc/os-release -> ../usr/lib/os-release",
+      "explanation": "On all modern Linux distributions /etc/os-release must be a non-empty regular file. cat showing nothing while ls shows content means this is a placeholder in the fake filesystem."
+    },
+    {
+      "id": "fs.hostname_mismatch",
+      "name": "Hostname sources contradict each other",
+      "strength": "STRONG",
+      "weight": 15,
+      "hit": false,
+      "evidence": "prompt='ubuntucowrie'  `hostname`='ubuntucowrie'  /etc/hostname='ubuntucowrie'",
+      "explanation": "On a real system these three are necessarily identical. Cowrie's prompt comes from the [honeypot] hostname config, the `hostname` command output is also a config value, but /etc/hostname in the fake filesystem is a third independent piece of data, and the three are out of sync."
+    },
+    {
+      "id": "fs.container_markers",
+      "name": "Container markers present (/.dockerenv or /proc/docker)",
+      "strength": "STRONG",
+      "weight": 15,
+      "hit": false,
+      "evidence": "$ ls -la /.dockerenv\nls: cannot access '/.dockerenv': No such file or directory\n$ ls -la /proc/docker\nls: cannot access '/proc/docker': No such file or directory",
+      "explanation": "These two paths exist only inside a Docker container. Cowrie's bundled fs.pickle was snapshotted from a real Docker container, so it carried these container traces into the 'physical server' disguise."
+    },
+    {
+      "id": "fs.uniform_timestamps",
+      "name": "Root directory timestamps highly repetitive",
+      "strength": "WEAK",
+      "weight": 10,
+      "hit": false,
+      "evidence": "0 entries, 0 after dedup (uniqueness 100%): []",
+      "explanation": "On a real system the mtimes of directories under / span different years, with a uniqueness ratio near 1. The fake filesystem was generated from one snapshot, so many entries share a few mtimes."
+    },
+    {
+      "id": "fs.sshd_config_empty",
+      "name": "/etc/ssh/sshd_config is empty",
+      "strength": "STRONG",
+      "weight": 12,
+      "hit": false,
+      "evidence": "# This is the sshd server system-wide configuration file.  See\n# sshd_config(5) for more information.\n\n# This sshd was compiled with PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games\n\n# The strategy used for options in the default sshd_config shipped with\n# OpenSSH is to specify options with their default value where\n# possible, but leave them commented.  Uncommented options override the\n# default value.\n\n# In general, the first uncommented definition of an option takes precedence.\n# For options that accept multiple values, like 'Port', subsequent definitions\n# are appended to the configuration.\n#\n# Note that the above implies that configuration options from snippets in\n# /etc/ssh/sshd_config.d/*.conf take precedence over those defined in this\n# file. In addition, configuration snippet files are processed in lexical\n# order, so options defined in files with names that sort earlier take\n# precedence.\n#\n# Such configuration snippets may be present in default installations of\n# Ubuntu.\nInclude /etc/ssh/sshd_config.d/*.conf\n\n# When systemd socket activation is used (the default), the socket\n# configuration must be re-generated after changing Port, AddressFamily, or\n# ListenAddress.\n#\n# For changes to take effect, run:\n#\n#   systemctl daemon-reload\n#   systemctl restart ssh.socket\n#\n#Port 22\n#AddressFamily any\n#ListenAddress 0.0.0.0\n#ListenAddress ::\n\n#HostKey /etc/ssh/ssh_host_rsa_key\n#HostKey /etc/ssh/ssh_host_ecdsa_key\n#HostKey /etc/ssh/ssh_host_ed25519_key\n\n# Ciphers and keying\n#RekeyLimit default none\n\n# Logging\n#SyslogFacility AUTH\n#LogLevel INFO\n\n# Authentication:\n\n#LoginGraceTime 2m\n#PermitRootLogin prohibit-password\n#StrictModes yes\n#MaxAuthTries 6\n#MaxSessions 10\n\n#PubkeyAuthentication yes\n\n# Expect .ssh/authorized_keys2 to be disregarded by default in future.\n#AuthorizedKeysFile\t.ssh/authorized_keys .ssh/authorized_keys2\n\n#AuthorizedPrincipalsFile none\n\n#AuthorizedKeysCommand none\n#AuthorizedKeysCommandUser nobody\n\n# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts\n#HostbasedAuthentication no\n# Change to yes if you don't trust ~/.ssh/known_hosts for\n# HostbasedAuthentication\n#IgnoreUserKnownHosts no\n# Don't read the user's ~/.rhosts and ~/.shosts files\n#IgnoreRhosts yes\n\n# To disable tunneled clear text passwords, change to \"no\" here!\n#PasswordAuthentication yes\n#PermitEmptyPasswords no\n\n# Change to \"yes\" to enable keyboard-interactive authentication.  Depending on\n# the system's configuration, this may involve passwords, challenge-response,\n# one-time passwords or some combination of these and other methods.\n# Beware issues with some PAM modules and threads.\nKbdInteractiveAuthentication no\n\n# Kerberos options\n#KerberosAuthentication no\n#KerberosOrLocalPasswd yes\n#KerberosTicketCleanup yes\n#KerberosGetAFSToken no\n\n# GSSAPI options\n#GSSAPIAuthentication no\n#GSSAPICleanupCredentials yes\n#GSSAPIStrictAcceptorCheck yes\n#GSSAPIKeyExchange no\n\n# Set this to 'yes' to enable PAM authentication, account processing,\n# and session processing. If this is enabled, PAM authentication will\n# be allowed through the KbdInteractiveAuthentication and\n# PasswordAuthentication.  Depending on your PAM configuration,\n# PAM authentication via KbdInteractiveAuthentication may bypass\n# the setting of \"PermitRootLogin prohibit-password\".\n# If you just want the PAM account and session checks to run without\n# PAM authentication, then enable this but set PasswordAuthentication\n# and KbdInteractiveAuthentication to 'no'.\nUsePAM yes\n\n#AllowAgentForwarding yes\n#AllowTcpForwarding yes\n#GatewayPorts no\nX11Forwarding yes\n#X11DisplayOffset 10\n#X11UseLocalhost yes\n#PermitTTY yes\nPrintMotd no\n#PrintLastLog yes\n#TCPKeepAlive yes\n#PermitUserEnvironment no\n#Compression delayed\n#ClientAliveInterval 0\n#ClientAliveCountMax 3\n#UseDNS no\n#PidFile /run/sshd.pid\n#MaxStartups 10:30:100\n#PermitTunnel no\n#ChrootDirectory none\n#VersionAddendum none\n\n# no default banner path\n#Banner none\n\n# Allow client to pass locale and color environment variables\nAcceptEnv LANG LC_* COLORTERM NO_COLOR\n\n# override default of no subsystems\nSubsystem\tsftp\t/usr/lib/openssh/sftp-server\n\n# Example of overriding settings on a per-user basis\n#Match User anoncvs\n#\tX11Forwarding no\n#\tAllowTcpForwarding no\n#\tPermitTTY no\n#\tForceCommand cvs server",
+      "explanation": "A real system running an SSH service necessarily has a non-empty sshd_config. The file existing but empty means the fake filesystem created the path without content."
+    },
+    {
+      "id": "cmd.head_numeric_shorthand",
+      "name": "head -3 does not support numeric shorthand",
+      "strength": "STRONG",
+      "weight": 18,
+      "hit": false,
+      "evidence": "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin",
+      "explanation": "`head -3 file` is supported by both POSIX and GNU coreutils; a real Linux never reports invalid option. Only a self-implemented simplified parser does."
+    },
+    {
+      "id": "cmd.tail_numeric_shorthand",
+      "name": "tail -2 does not support numeric shorthand",
+      "strength": "STRONG",
+      "weight": 12,
+      "hit": false,
+      "evidence": "sshd:x:983:65534:sshd user:/run/sshd:/usr/sbin/nologin\ncowrie:x:1001:1001:,,,:/home/cowrie:/bin/bash",
+      "explanation": "same as head, a symptom of the same simplified parser"
+    },
+    {
+      "id": "cmd.df_broken_binary",
+      "name": "df cannot execute (binary format error)",
+      "strength": "DECISIVE",
+      "weight": 20,
+      "hit": false,
+      "evidence": "Filesystem                         Size  Used Avail Use% Mounted on\ntmpfs                              393M 1012K  392M   1% /run\n/dev/mapper/ubuntu--vg-ubuntu--lv  9.8G  5.7G  3.6G  62% /\ntmpfs                              982M     0  982M   0% /dev/shm\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-journald.service\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-resolved.service\ntmpfs                              982M     0  982M   0% /tmp\n/dev/vda2                          1.8G  183M  1.5G  12% /boot\nnone                               1.0M     0  1.0M   0% /run/credentials/systemd-networkd.service\nnone                               1.0M     0  1.0M   0% /run/credentials/serial-getty@ttyS0.service\nnone                               1.0M     0  1.0M   0% /run/credentials/getty@tty1.service\ntmpfs                              197M  8.0K  197M   1% /run/user/1000",
+      "explanation": "df is part of coreutils, an essential command on every Linux distribution. Reporting 'Exec format error' means this is a fake binary returned as an executable, showing the command was never actually run."
+    },
+    {
+      "id": "cmd.sed_broken_binary",
+      "name": "sed cannot execute (binary format error)",
+      "strength": "DECISIVE",
+      "weight": 15,
+      "hit": false,
+      "evidence": "root:x:0:0:root:/root:/bin/bash",
+      "explanation": "same as df. sed is an essential POSIX tool; a real system cannot fail to run it."
+    },
+    {
+      "id": "cmd.top_crash",
+      "name": "top behaves abnormally",
+      "strength": "STRONG",
+      "weight": 12,
+      "hit": false,
+      "evidence": "\u001b=\u001b(Btop - 02:34:21 up 35 min,  2 users,  load average: 0.00, 0.00, 0.00\u001b(B\u001b(B\nTasks:\u001b(B 133 \u001b(Btotal,\u001b(B   1 \u001b(Brunning,\u001b(B 132 \u001b(Bsleeping,\u001b(B   0 \u001b(Bstopped,\u001b(B   0 \u001b(Bzombie\u001b(B\u001b(B\n%Cpu(s):\u001b(B  4.5 \u001b(Bus,\u001b(B  0.0 \u001b(Bsy,\u001b(B  0.0 \u001b(Bni,\u001b(B 95.5 \u001b(Bid,\u001b(B  0.0 \u001b(Bwa,\u001b(B  0.0 \u001b(Bhi,\u001b(B  0.0 \u001b(Bsi,\u001b(B  0.0 \u001b(Bst\u001b(B\u001b(B \u001b(B\u001b(B\nMiB Mem :\u001b(B   1962.5 \u001b(Btotal,\u001b(B   1256.0 \u001b(Bfree,\u001b(B    401.6 \u001b(Bused,\u001b(B    452.0 \u001b(Bbuff/cache\u001b(B\u001b(B \u001b(B\u001b(B    \u001b(B\u001b(B\nMiB Swap:\u001b(B   1847.0 \u001b(Btotal,\u001b(B   1847.0 \u001b(Bfree,\u001b(B      0.0 \u001b(Bused.\u001b(B   1560.9 \u001b(Bavail Mem \u001b(B\u001b(B\n\n    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                                                                          \u001b(B\n\u001b(B   2988 ubuntuc+  20   0   10832   5908   3752 R   9.1   0.3   0:00.01 top                                                                                                                              \u001b(B\n\u001b(B      1 root      20   0   24892  16124  11680 S   0.0   0.8   0:04.24 systemd                                                                                                                          \u001b(B\n\u001b(B      2 root      20   0       0      0      0 S   0.0   0.0   0:00.01 kthreadd                                                                                                                         \u001b(B\n\u001b(B      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_workqueue_release                                                                                                           \u001b(B\n\u001b(B      4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-rcu_gp                                                                                                                 \u001b(B\n\u001b(B      5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-sync_wq                                                                                                                \u001b(B\n\u001b(B      6 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kvfree_rcu_reclaim                                                                                                     \u001b(B\n\u001b(B      7 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-slub_flushwq                                                                                                           \u001b(B\n\u001b(B      8 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-netns                                                                                                                  \u001b(B\n\u001b(B      9 root      20   0       0      0      0 I   0.0   0.0   0:00.10 kworker/0:0-events                                                                                                               \u001b(B\n\u001b(B     10 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/0:0H-kblockd                                                                                                             \u001b(B\n\u001b(B     12 root      20   0       0      0      0 I   0.0   0.0   0:00.00 kworker/u8:0-ipv6_addrconf                                                                                                       \u001b(B\n\u001b(B     13 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-mm_percpu_wq                                                                                                           \u001b(B\n\u001b(B     14 root      20   0       0      0      0 S   0.0   0.0   0:00.00 ksoftirqd/0                                                                                                                      \u001b(B\n\u001b(B     15 root       0 -20       0      0      0 S   0.0   0.0   0:01.07 pr/ttyS0                                                                                                                         \u001b(B\n\u001b(B     16 root      20   0       0      0      0 I   0.0   0.0   0:00.17 rcu_preempt                                                                                                                      \u001b(B\n\u001b(B     17 root      20   0       0      0      0 S   0.0   0.0   0:00.00 rcu_exp_par_gp_kthread_worker/0                                                                                                  \u001b(B\n\u001b(B     18 root      20   0       0      0      0 S   0.0   0.0   0:00.00 rcu_exp_gp_kthread_worker                                                                                                        \u001b(B\n\u001b(B     19 root      rt   0       0      0      0 S   0.0   0.0   0:00.02 migration/0                                                                                                                      \u001b(B\n\u001b(B     20 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kprobe-optimizer                                                                                                                 \u001b(B\n\u001b(B     21 root     -51   0       0      0      0 S   0.0   0.0   0:00.00 idle_inject/0                                                                                                                    \u001b(B\n\u001b(B     22 root      20   0       0      0      0 S   0.0   0.0   0:00.00 cpuhp/0                                                                                                                          \u001b(B\n\u001b(B     23 root      20   0       0      0      0 S   0.0   0.0   0:00.00 cpuhp/1                                                                                                                          \u001b(B\n\u001b(B     24 root     -51   0       0      0      0 S   0.0   0.0   0:00.00 idle_inject/1                                                                                                                    \u001b(B\n\u001b(B     25 root      rt   0       0      0      0 S   0.0   0.0   0:00.02 migration/1                                                                                                                      \u001b(B\n\u001b(B     26 root      20   0       0      0      0 S   0.0   0.0   0:00.00 ksoftirqd/1                                                                                                                      \u001b(B\n\u001b(B     28 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/1:0H-kblockd                                                                                                             \u001b(B\n\u001b(B     30 root      20   0       0      0      0 I   0.0   0.0   0:00.42 kworker/u10:0-flush-252:0                                                                                                        \u001b(B\n\u001b(B     31 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kdevtmpfs                                                                                                                        \u001b(B\n\u001b(B     32 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-inet_frag_wq                                                                                                           \u001b(B\n\u001b(B     33 root      20   0       0      0      0 I   0.0   0.0   0:00.00 rcu_tasks_kthread                                                                                                                \u001b(B\n\u001b(B     34 root      20   0       0      0      0 I   0.0   0.0   0:00.00 rcu_tasks_rude_kthread                                                                                                           \u001b(B\n\u001b(B     35 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kauditd                                                                                                                          \u001b(B\n\u001b(B     36 root      20   0       0      0      0 S   0.0   0.0   0:00.00 khungtaskd                                                                                                                       \u001b(B\n\u001b(B     37 root      20   0       0      0      0 S   0.0   0.0   0:00.00 oom_reaper                                                                                                                       \u001b(B\n\u001b(B     39 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-writeback                                                                                                              \u001b(B\n\u001b(B     40 root      20   0       0      0      0 I   0.0   0.0   0:00.02 kworker/u10:2-writeback                                                                                                          \u001b(B\n\u001b(B     41 root      20   0       0      0      0 S   0.0   0.0   0:00.14 kcompactd0                                                                                                                       \u001b(B\n\u001b(B     42 root      25   5       0      0      0 S   0.0   0.0   0:00.00 ksmd                                                                                                                             \u001b(B\n\u001b(B     43 root      39  19       0      0      0 S   0.0   0.0   0:00.00 khugepaged                                                                                                                       \u001b(B\n\u001b(B     44 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kblockd                                                                                                                \u001b(B\n\u001b(B     45 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-blkcg_punt_bio                                                                                                         \u001b(B\n\u001b(B     46 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker/R-kintegrityd                                                                                                            \u001b(B\u001b>",
+      "explanation": "In Cowrie top is emulated by reading preset /proc data; a real argument combination reaches an unhandled code path and errors out."
+    },
+    {
+      "id": "cmd.missing_modern_tools",
+      "name": "Missing modern system tools (ss/ip/systemctl)",
+      "strength": "STRONG",
+      "weight": 15,
+      "hit": false,
+      "evidence": "$ which ss ip systemctl\n/usr/bin/ss\n/usr/sbin/ip\n/usr/bin/systemctl\nmissing count: 0/3",
+      "explanation": "iproute2 (ip, ss) has been the default network tooling on mainstream distributions since 2001, and systemd the default init on Ubuntu/Debian since 2015. Their absence severely contradicts the Debian 12 the banner claims."
+    },
+    {
+      "id": "cmd.legacy_nic_name",
+      "name": "Interface uses the old eth0 naming",
+      "strength": "WEAK",
+      "weight": 8,
+      "hit": false,
+      "evidence": "Command 'ifconfig' not found, but can be installed with:\nsudo apt install net-tools",
+      "explanation": "systemd's net.ifnames has enabled predictable interface names by default since 2015 (enp0s3, ens33, etc.); modern Debian/Ubuntu no longer use eth0. Cowrie's ifconfig emulated output is a hard-coded eth0."
+    },
+    {
+      "id": "cmd.kernel_distro_mismatch",
+      "name": "Kernel identity inconsistent with the distribution implied by the directory structure",
+      "strength": "WEAK",
+      "weight": 8,
+      "hit": false,
+      "evidence": "$ uname -a\nLinux ubuntucowrie 7.0.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Aug  1 04:26:38 UTC 2026 x86_64 GNU/Linux",
+      "explanation": "uname's build string comes from the [shell] kernel_build_string config, while the directory structure comes from the fake filesystem snapshot; being independent, they easily conflict."
+    },
+    {
+      "id": "cmd.uptime_short",
+      "name": "System uptime abnormally short",
+      "strength": "WEAK",
+      "weight": 10,
+      "hit": true,
+      "evidence": " 02:34:25 up 35 min,  2 users,  load average: 0.00, 0.00, 0.00",
+      "explanation": "Cowrie's uptime counts from process start, not system boot, so every honeypot restart shows as just booted. A production server rarely reboots within an hour."
+    },
+    {
+      "id": "term.underline_escape",
+      "name": "Abnormal terminal underline control sequences in output",
+      "strength": "STRONG",
+      "weight": 15,
+      "hit": false,
+      "evidence": "'echo MARKER_PROBE\\r\\n\\x1b[?2004l\\r\\x1b]3008;start=118fb66e-2ff3-43e6-b8cb-f43c03fc5a95;machineid=82c7f8e3b10543c5bdd230104a96c69f;user=ubuntucowrie;hostname=ubuntucowrie;bootid=f7a8780c-6216-4971-b55b-3c2fd7e6ea51;pid=00000000000000003131;type=command;cwd=/home/ubuntucowrie\\x1b\\\\MARKER_PROBE\\r\\n\\x1b]3008;end=118fb66e-2ff3-43e6-b8cb-f43c03fc5a95;exit=success\\x1b\\\\\\x1b]3008;start=d2250767-3212-495f-a1a1-06cc2b3fd923;machine'",
+      "explanation": "Cowrie inserts \\x1b[4l / \\x1b[4h (disable/enable underline) around every command output. A real bash does not send these two sequences on its own."
+    },
+    {
+      "id": "term.no_bracketed_paste",
+      "name": "Missing bracketed paste mode sequences",
+      "strength": "WEAK",
+      "weight": 6,
+      "hit": false,
+      "evidence": "did not observe \\x1b[?2004h/l",
+      "explanation": "Modern bash (5.0+) enables bracketed paste and OSC 3008 session marking by default. The absence may be user customisation, so it counts only as a weak signal."
+    }
+  ]
+}

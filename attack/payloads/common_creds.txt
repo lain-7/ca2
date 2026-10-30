@@ -5,7 +5,7 @@ root:password
 root:admin
 root:root
 admin:admin
-admin:123456
+cowrie:123456
 admin:password
 ubuntu:ubuntu
 test:test

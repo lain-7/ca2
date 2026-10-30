@@ -8,7 +8,8 @@
 #
 # 端口规划（最大化真实攻击捕获）：
 #   22   —— 对公网暴露，经 nat 重定向到 2222，交给 Cowrie（抓真实扫描）
-#   2222 —— Cowrie 实际监听端口（仅本机，重定向目标）
+#   2222 —— Cowrie 实际监听端口；防火墙只放行由 22 重定向来的连接，
+#           外部直连 2222 会被丢弃（避免暴露 Cowrie 默认端口这一识别特征）
 #   2022 —— 你自己的管理 SSH（真实 sshd），仅密钥登录
 #
 # 两阶段防锁死：
@@ -173,8 +174,8 @@ firewall_base() {
     ufw default deny incoming
     ufw default allow outgoing          # 出站默认放行（收紧见文档，别在未验证时切断）
     ufw allow "$ADMIN_PORT"/tcp comment '管理 SSH'
-    ufw allow 22/tcp comment '公网->Cowrie(重定向后)'
-    ufw allow "$COWRIE_PORT"/tcp comment 'Cowrie'
+    ufw allow 22/tcp comment '切换前为真实 sshd'
+    # 不放行 $COWRIE_PORT：切换后由 cutover_filter 只放行重定向来的连接
     ufw --force enable
     ufw status verbose || true
 }
@@ -243,6 +244,28 @@ EOF
     ufw reload
 }
 
+cutover_filter() {
+    # 重定向后的包到 INPUT 链时目的端口已是 $COWRIE_PORT，所以必须放行它；
+    # 但只放行“原始目的端口是 $PUBLIC_PORT”的连接，外部直连 $COWRIE_PORT 一律丢弃。
+    local tag="cowrie-redirect-only"
+    local anchor='-A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT'
+    local rule="-A ufw-before-input -p tcp --dport $COWRIE_PORT -m conntrack --ctstate DNAT --ctorigdstport $PUBLIC_PORT -m comment --comment $tag -j ACCEPT"
+
+    # 清理旧版脚本留下的“直接放行 $COWRIE_PORT”规则
+    ufw --force delete allow "$COWRIE_PORT"/tcp >/dev/null 2>&1 || true
+
+    if grep -q -- "$tag" "$UFW_BEFORE"; then
+        log INFO "2222 仅限重定向的过滤规则已存在，跳过"
+    else
+        grep -qxF -- "$anchor" "$UFW_BEFORE" \
+            || die "before.rules 里找不到锚点行，请手动在 filter 段加入：$rule"
+        log INFO "限制 $COWRIE_PORT 只接受由 $PUBLIC_PORT 重定向来的连接..."
+        cp "$UFW_BEFORE" "$UFW_BEFORE.bak.$(date +%s)"
+        sed -i "\|^${anchor}\$|a ${rule}" "$UFW_BEFORE"
+    fi
+    ufw reload
+}
+
 verify_cutover() {
     log INFO "当前监听端口："
     ss -tulnp 2>/dev/null | grep -E ":($ADMIN_PORT|$COWRIE_PORT|22)\b" || true
@@ -268,6 +291,7 @@ cutover() {
     [ "$ans" = "yes" ] || die "已取消。先验证管理端口再来。"
     cutover_ssh
     cutover_nat
+    cutover_filter
     verify_cutover
 }
 

@@ -35,12 +35,16 @@ sudo apt install sshpass openssh-client coreutils
 ### 基本用法
 
 ```bash
-# 使用默认配置（目标：192.168.122.123:2222）
-./simulate_attack.sh
+# 指定蜜罐 IP，端口默认 22（VPS 上 Cowrie 占 22）
+./simulate_attack.sh <蜜罐IP>
 
-# 指定目标 IP 和端口
-./simulate_attack.sh 192.168.122.123 2222
+# 显式指定 IP 和端口
+./simulate_attack.sh <蜜罐IP> 22       # VPS 环境
+./simulate_attack.sh 192.168.122.123 2222   # 旧 VirtualBox 环境，Cowrie 在 2222
 ```
+
+> 注意：不要给 ssh 加 `-o BatchMode=yes`——它会禁用密码提示，使 sshpass 无法喂入密码，
+> 导致所有登录都"失败"。脚本已按此修正。
 
 ### 修改攻击字典
 

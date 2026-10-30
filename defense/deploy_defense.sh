@@ -25,6 +25,7 @@ ADMIN_PORT=2022                 # 管理 SSH 新端口（切换后用它登录�
 COWRIE_PORT=2222                # Cowrie 监听端口
 PUBLIC_PORT=22                  # 对外暴露、重定向给 Cowrie 的端口
 COWRIE_USER=cowrie              # 运行 Cowrie 的专用非 root 用户
+COWRIE_VERSION=3.0.13           # 与原实验环境一致的 Cowrie 版本（PyPI）
 COWRIE_HOME="/home/$COWRIE_USER"
 COWRIE_DIR="$COWRIE_HOME/cowrie"
 UFW_BEFORE="/etc/ufw/before.rules"
@@ -67,41 +68,40 @@ create_cowrie_user() {
 }
 
 install_cowrie() {
-    # 自愈：目录存在但不完整（没有 requirements.txt）说明上次没装完，删掉重来
-    if [ -d "$COWRIE_DIR" ] && ! sudo -u "$COWRIE_USER" test -f "$COWRIE_DIR/requirements.txt"; then
-        log WARN "检测到不完整的 Cowrie 目录，删除后重新安装：$COWRIE_DIR"
+    # 旧版本脚本留下的是 git 源码检出（新版 Cowrie 布局已变，无法照旧使用）。
+    # 该检出从未成功启动过，不含捕获数据，直接清理。
+    if [ -d "$COWRIE_DIR/.git" ]; then
+        log WARN "检测到旧脚本留下的 Cowrie 源码检出，清理后改用 pip 安装：$COWRIE_DIR"
         rm -rf "$COWRIE_DIR"
     fi
-    log INFO "以 $COWRIE_USER 身份安装/修复 Cowrie（克隆 + venv + pip，幂等）..."
+    log INFO "以 $COWRIE_USER 身份 pip 安装 Cowrie $COWRIE_VERSION（幂等）..."
     sudo -u "$COWRIE_USER" -H bash <<EOF
 set -e
-cd "$COWRIE_HOME"
-# 没有 .git 说明没克隆或克隆残缺，清掉重新克隆
-if [ ! -d cowrie/.git ]; then
-    rm -rf cowrie
-    git clone https://github.com/cowrie/cowrie
-fi
-cd cowrie
-[ -d cowrie-env ] || python3 -m venv cowrie-env
-source cowrie-env/bin/activate
-pip install --upgrade pip wheel
-pip install -r requirements.txt
+mkdir -p "$COWRIE_DIR"
+cd "$COWRIE_DIR"
+[ -x cowrie-env/bin/python ] || python3 -m venv cowrie-env
+cowrie-env/bin/pip install --upgrade pip wheel
+# 锁定与原实验环境一致的版本（tools/ 下的补丁也基于此版本）
+cowrie-env/bin/pip install "cowrie==$COWRIE_VERSION"
 EOF
-    # 安装后校验关键文件在位，否则明确报错而不是继续
-    sudo -u "$COWRIE_USER" test -f "$COWRIE_DIR/etc/cowrie.cfg.dist" \
-        || die "Cowrie 检出不完整（缺 etc/cowrie.cfg.dist），请检查网络后重跑本脚本"
+    sudo -u "$COWRIE_USER" test -x "$COWRIE_DIR/cowrie-env/bin/cowrie" \
+        || die "Cowrie 安装失败（缺 cowrie-env/bin/cowrie），请检查上面 pip 的报错"
 }
 
 configure_cowrie() {
-    log INFO "生成 Cowrie 配置（默认监听 $COWRIE_PORT）..."
+    # Cowrie 3.x 的配置、pid、日志都相对工作目录：
+    #   ./etc/cowrie.cfg  ./var/run/cowrie.pid  ./var/log/cowrie/
+    # `cowrie init` 用包内默认配置生成 etc/cowrie.cfg 并建好 var/ 目录；
+    # 未初始化的目录 `cowrie start` 会拒绝启动。默认 SSH 端口即 2222。
+    log INFO "初始化 Cowrie 工作目录（cowrie init）..."
     sudo -u "$COWRIE_USER" -H bash <<EOF
 set -e
 cd "$COWRIE_DIR"
-# Cowrie 以 etc/cowrie.cfg.dist 为默认配置、etc/cowrie.cfg 为覆盖层。
-# 默认端口已是 2222，这里仅在不存在时复制一份可改的 cfg。
-[ -f etc/cowrie.cfg ] || cp etc/cowrie.cfg.dist etc/cowrie.cfg
+[ -f etc/cowrie.cfg ] || cowrie-env/bin/cowrie init
 EOF
-    log INFO "如需自定义主机名/端口，编辑 $COWRIE_DIR/etc/cowrie.cfg 后重启 Cowrie"
+    sudo -u "$COWRIE_USER" test -f "$COWRIE_DIR/etc/cowrie.cfg" \
+        || die "Cowrie 初始化失败（缺 etc/cowrie.cfg）"
+    log INFO "如需自定义主机名等，编辑 $COWRIE_DIR/etc/cowrie.cfg 后 systemctl restart cowrie"
 }
 
 install_systemd_unit() {
@@ -116,8 +116,11 @@ Type=forking
 User=$COWRIE_USER
 Group=$COWRIE_USER
 WorkingDirectory=$COWRIE_DIR
-ExecStart=$COWRIE_DIR/bin/cowrie start
-ExecStop=$COWRIE_DIR/bin/cowrie stop
+# cowrie 启动器用 execvp 按 PATH 查找 twistd，必须把虚拟环境 bin 放进 PATH
+Environment=PATH=$COWRIE_DIR/cowrie-env/bin:/usr/local/bin:/usr/bin:/bin
+Environment=AUTHBIND_ENABLED=no
+ExecStart=$COWRIE_DIR/cowrie-env/bin/cowrie start
+ExecStop=$COWRIE_DIR/cowrie-env/bin/cowrie stop
 PIDFile=$COWRIE_DIR/var/run/cowrie.pid
 Restart=on-failure
 

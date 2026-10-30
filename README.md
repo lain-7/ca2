@@ -34,10 +34,12 @@
 │
 ├── attack/                        **攻击方工具**
 │   ├── simulate_attack.sh         SSH 暴力破解和侦察命令模拟
+│   ├── deploy_attack.sh           攻击机一键环境部署
 │   ├── payloads/                  攻击载荷（凭据字典）
 │   └── README.md                  攻击工具使用说明
 │
 ├── defense/                       **防守方工具**
+│   ├── deploy_defense.sh          防守机(VPS)一键部署，手工复现蜜罐
 │   ├── analyze_logs.sh            Cowrie 日志分析主脚本
 │   ├── ip_tracker.py              IP 地理位置溯源和威胁评估
 │   ├── visualizer.py              终端 ASCII 图表
@@ -83,6 +85,8 @@
 - `蜜罐改造记录.md` - 逐步改造过程与分数对照（1.4 万字）
 - `虚拟机环境说明.md` - OVA 迁移到 KVM 的全部改动与理由
 - `攻防演练使用指南.md` - **完整攻防流程**（30 分钟上手）
+- `VPS部署安全审计.md` - 把蜜罐放到公网 VPS 的风险与加固清单
+- `汇报取舍与预期问题.md` - 35 分钟汇报怎么砍内容 + 20 个预期提问
 
 ---
 

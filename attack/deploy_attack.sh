@@ -30,9 +30,15 @@ install_packages() {
 }
 
 prepare_scripts() {
-    [ -f "$ATTACK_SCRIPT" ] || die "找不到 $ATTACK_SCRIPT"
+    if [ ! -f "$ATTACK_SCRIPT" ]; then
+        die "找不到 $ATTACK_SCRIPT
+攻击机需要完整的 attack/ 目录（含 simulate_attack.sh 与 payloads/），不能只拷贝本脚本。
+请把整个 attack/ 目录（或整个仓库）放到攻击机上，从 attack/ 目录里运行：
+    cd <仓库>/attack
+    sudo ./deploy_attack.sh"
+    fi
     chmod +x "$ATTACK_SCRIPT"
-    [ -f "$CREDS_FILE" ] || die "找不到凭据字典 $CREDS_FILE"
+    [ -f "$CREDS_FILE" ] || die "找不到凭据字典 $CREDS_FILE（payloads/ 没一起拷过来）"
     log INFO "攻击脚本就绪，凭据字典 $(grep -c ':' "$CREDS_FILE") 组"
 }
 

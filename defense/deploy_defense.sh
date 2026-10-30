@@ -67,36 +67,41 @@ create_cowrie_user() {
 }
 
 install_cowrie() {
-    if [ -d "$COWRIE_DIR" ]; then
-        log INFO "Cowrie 目录已存在，跳过克隆/安装"
-        return
+    # 自愈：目录存在但不完整（没有 requirements.txt）说明上次没装完，删掉重来
+    if [ -d "$COWRIE_DIR" ] && ! sudo -u "$COWRIE_USER" test -f "$COWRIE_DIR/requirements.txt"; then
+        log WARN "检测到不完整的 Cowrie 目录，删除后重新安装：$COWRIE_DIR"
+        rm -rf "$COWRIE_DIR"
     fi
-    log INFO "以 $COWRIE_USER 身份安装 Cowrie（克隆 + venv + pip）..."
+    log INFO "以 $COWRIE_USER 身份安装/修复 Cowrie（克隆 + venv + pip，幂等）..."
     sudo -u "$COWRIE_USER" -H bash <<EOF
 set -e
 cd "$COWRIE_HOME"
-git clone https://github.com/cowrie/cowrie
+# 没有 .git 说明没克隆或克隆残缺，清掉重新克隆
+if [ ! -d cowrie/.git ]; then
+    rm -rf cowrie
+    git clone https://github.com/cowrie/cowrie
+fi
 cd cowrie
-python3 -m venv cowrie-env
+[ -d cowrie-env ] || python3 -m venv cowrie-env
 source cowrie-env/bin/activate
 pip install --upgrade pip wheel
 pip install -r requirements.txt
 EOF
+    # 安装后校验关键文件在位，否则明确报错而不是继续
+    sudo -u "$COWRIE_USER" test -f "$COWRIE_DIR/etc/cowrie.cfg.dist" \
+        || die "Cowrie 检出不完整（缺 etc/cowrie.cfg.dist），请检查网络后重跑本脚本"
 }
 
 configure_cowrie() {
-    log INFO "生成 Cowrie 配置..."
+    log INFO "生成 Cowrie 配置（默认监听 $COWRIE_PORT）..."
     sudo -u "$COWRIE_USER" -H bash <<EOF
 set -e
 cd "$COWRIE_DIR"
+# Cowrie 以 etc/cowrie.cfg.dist 为默认配置、etc/cowrie.cfg 为覆盖层。
+# 默认端口已是 2222，这里仅在不存在时复制一份可改的 cfg。
 [ -f etc/cowrie.cfg ] || cp etc/cowrie.cfg.dist etc/cowrie.cfg
-# 确保 Cowrie 监听在 $COWRIE_PORT，并开启 json 日志（后续分析脚本要用）
-# 这里只做最小改动：显式写入 [ssh] 监听端口
-if ! grep -q "listen_endpoints = tcp:$COWRIE_PORT" etc/cowrie.cfg; then
-    sed -i "s/^#\?listen_endpoints = .*/listen_endpoints = tcp:$COWRIE_PORT:interface=0.0.0.0/" etc/cowrie.cfg || true
-fi
 EOF
-    log INFO "如需自定义主机名/伪文件系统，编辑 $COWRIE_DIR/etc/cowrie.cfg 后重启 Cowrie"
+    log INFO "如需自定义主机名/端口，编辑 $COWRIE_DIR/etc/cowrie.cfg 后重启 Cowrie"
 }
 
 install_systemd_unit() {
